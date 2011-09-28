@@ -1,0 +1,5 @@
+name = Menu Item Image
+description = Makes it possible to append an image to every menu item which can be used in a block.
+package = LOOM
+version = VERSION
+core = 7.x

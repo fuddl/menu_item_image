@@ -1,0 +1,9 @@
+<?php
+
+function menu_item_image_install() {
+  db_query("CREATE TABLE IF NOT EXISTS `menu_item_image` (
+  `mlid` int(11) NOT NULL,
+  `fid` int(11) NOT NULL,
+  PRIMARY KEY  (`mlid`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1;");
+}
