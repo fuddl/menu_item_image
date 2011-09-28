@@ -3,3 +3,5 @@ description = Makes it possible to append an image to every menu item which can 
 package = LOOM
 version = VERSION
 core = 7.x
+
+configure = admin/structure/block/manage/menu_item_image/menu_item_image/configure
