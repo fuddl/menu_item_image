@@ -1,12 +1,126 @@
 <?php
 
+function menu_item_image_menu() {
+  $items = array();
+  
+  $items['admin/structure/menu_item_image'] = array(
+    'page callback' => 'menu_item_image_overview',
+    'access callback' => TRUE,
+    'title' => 'Menu item image',
+    'description' => 'Configure menu item images.',
+    'type' => MENU_NORMAL_ITEM,
+  );
+  
+  $items['admin/structure/menu_item_image/add_image/%menu_link'] = array(
+    'type' => MENU_LOCAL_ACTION,
+    'context' => MENU_CONTEXT_INLINE,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('edit_menu_item_image_form', 4),
+    'access callback' => TRUE,
+    'title' => 'foo',
+    'title callback' => 'contextual_add_menu_item_image_title',
+    'title arguments' => array(4),
+  );
+
+  $items['admin/structure/menu_item_image/add_image'] = array(
+    'page arguments' => array(1),
+    'access callback' => TRUE,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/structure/menu_item_image/edit_image/%menu_link'] = array(
+    'type' => MENU_LOCAL_ACTION,
+    'context' => MENU_CONTEXT_INLINE,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('edit_menu_item_image_form', 4),
+    'access callback' => TRUE,
+    'title callback' => 'contextual_edit_menu_item_image_title',
+    'title arguments' => array(4),
+  );
+
+  $items['admin/structure/menu_item_image/edit_image'] = array(
+    //  'page callback' => 'contextual_example_page',
+    'page arguments' => array(1),
+    'access callback' => TRUE,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/structure/menu_item_image/edit_inherit_image/%menu_link'] = array(
+    'type' => MENU_LOCAL_ACTION,
+    'context' => MENU_CONTEXT_INLINE,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('edit_menu_item_image_form', 4),
+    'access callback' => TRUE,
+    'title callback' => 'contextual_edit_inherit_menu_item_image_title',
+    'title arguments' => array(4),
+  );
+
+//  $items['admin/structure/menu_item_image/edit_inherit_image'] = array(
+//    //  'page callback' => 'contextual_example_page',
+//    'page arguments' => array(1),
+//    'access callback' => TRUE,
+//    'type' => MENU_LOCAL_ACTION,
+//  );
+
+
+
+  return $items;
+}
+
+function contextual_edit_inherit_menu_item_image_title($menu_item) {
+  return t('Change Image for @itemname', array('@itemname' => $menu_item['link_title']));
+}
+
+function contextual_add_menu_item_image_title($menu_item) {
+  return t('Overwrite image');
+}
+
+function contextual_edit_menu_item_image_title($menu_item) {
+  return t('Change Image');
+}
+
+function menu_item_image_contextual_links_add() {
+  $items = menu_get_active_trail();
+  $last_item = end($items);
+
+  $links = array();
+  if (isset($last_item['mlid'])) {
+    if (is_numeric(get_image_to_menu_item($last_item['mlid']))) {
+      $links['change_image'] = array(
+        'admin/structure/menu_item_image/edit_image',
+        array($items[1]['mlid']),
+      );
+    } else {
+      $links['edit_inherit_image'] = array(
+        'admin/structure/menu_item_image/edit_inherit_image',
+        array($items[1]['mlid']),
+      );
+      $links['add__image'] = array(
+        'admin/structure/menu_item_image/add_image',
+        array($items[1]['mlid']),
+      );
+    }
+  }
+
+  return $links;
+}
+
 function menu_item_image_form_alter(&$form, &$form_state, $form_id) {
   if ($form_id == 'menu_edit_item') {
     $form['image'] = menu_item_add_image($form);
   }
+  if ($form_id == 'menu_overview_form') {
+    foreach (element_children($form) as $mlid) {
+      if (isset($form[$mlid]['hidden'])) {
+        $form[$mlid]['operations']['foo'] = array(
+          '#markup' => get_image_to_menu_item($mlid),
+        );
+      }
+    }
+  }
 }
 
-function menu_item_image_form_node_form_alter(&$form, $form_state) {
+  function menu_item_image_form_node_form_alter(&$form, $form_state) {
   if (isset($form['menu']['link'])) {
     $form['menu']['link']['image'] = menu_item_add_image($form);
   }
@@ -19,7 +133,7 @@ function menu_item_add_image(&$form) {
       '#type' => 'inherit_header_image',
       '#title' => t('Inherited image'),
       '#image' => file_load(get_fid_from_menu_item()),
-    ); 
+    );
   }
   $form['#submit'][] = 'image_for_menu_item_submit';
   return array(
@@ -55,6 +169,8 @@ function image_for_menu_item_submit($form, &$form_state) {
             ))
             ->condition('fid', $menu_item_image)
             ->execute();
+    $file = file_load($menu_item_image);
+    file_usage_add($file, 'menu_item_image', 'menu_item_image', $menu_item_image);
   }
 }
 
@@ -99,9 +215,12 @@ function menu_item_image_block_view($delta = '') {
 
   if ($fid) {
     $image = file_load($fid);
-    $block['content'] = theme('image_style', array('path' => $image->uri, 'style_name' => variable_get('menu_item_image_style', 'large')));
+    $block['content']['#markup'] = theme('image_style', array('path' => $image->uri, 'style_name' => variable_get('menu_item_image_style', 'large')));
   }
 
+  if (isset($block['content']) && is_array($block['content'])) {
+    $block['content']['#contextual_links'] = menu_item_image_contextual_links_add();
+  }
   return $block;
 }
 
@@ -131,9 +250,9 @@ function menu_item_image_block_save($delta = '', $edit = array()) {
   variable_set('menu_item_image_style', $edit['menu_item_image_style']);
   variable_set('menu_item_image_default_image', $edit['menu_item_image_default_image']);
   db_update('file_managed')
-    ->fields(array('status' => 1))
-    ->condition('fid', $edit['menu_item_image_default_image'])
-    ->execute();
+          ->fields(array('status' => 1))
+          ->condition('fid', $edit['menu_item_image_default_image'])
+          ->execute();
 }
 
 function get_image_to_menu_item($mlid) {
@@ -150,8 +269,8 @@ function get_image_to_menu_item($mlid) {
 }
 
 /**
-* Implementation of hook_element_info();
-*/
+ * Implementation of hook_element_info();
+ */
 function menu_item_image_element_info() {
   return array(
     'inherit_header_image' => array(
@@ -162,8 +281,8 @@ function menu_item_image_element_info() {
 }
 
 /**
-* Implementation of hook_theme();
-*/
+ * Implementation of hook_theme();
+ */
 function menu_item_image_theme() {
   return array(
     'inherit_menu_item_image' => array(
@@ -176,4 +295,25 @@ function theme_inherit_menu_item_image($variables) {
   $element = &$variables['element'];
   $element['#children'] = theme('image_style', array('path' => $element['#image']->uri, 'style_name' => 'thumbnail'));
   return theme('form_element', $element);
+}
+
+function edit_menu_item_image_form($form_state) {
+  $menu_item = menu_link_load(arg(4));
+  $form = array();
+  $form['mlid'] = array(
+    '#type' => 'hidden',
+    '#value' => $menu_item['mlid'],
+  );
+  $form['image'] = menu_item_add_image($form);
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save'),
+  );
+  return $form;
+}
+
+function menu_item_image_overview() {
+   module_load_include('inc', 'menu', 'menu.admin');
+
+   return drupal_get_form('menu_overview_form', menu_load('main-menu'));
 }
